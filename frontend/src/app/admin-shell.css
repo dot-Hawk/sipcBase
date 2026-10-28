@@ -1,0 +1,300 @@
+/* Management layout: deep-blue brand sidebar on desktop, drawer + top bar below 900px. */
+.admin {
+  --side: 264px;
+  --bar: 56px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: var(--bar) minmax(0, 1fr);
+  height: 100dvh;
+}
+.admin__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 8px;
+  background: var(--brand-gradient);
+  color: #fff;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 4px 16px rgba(14, 40, 72, 0.18);
+  position: relative;
+  z-index: 30;
+}
+.admin__bar .icon-btn {
+  color: #fff;
+}
+.admin__bar .icon-btn:not(:disabled):active,
+.admin__bar .icon-btn[aria-expanded='true'] {
+  background: var(--glass-on-brand-active);
+}
+.admin__bar :focus-visible {
+  outline-color: #fff;
+}
+.admin__bar-mark {
+  width: 28px;
+  height: 28px;
+  color: #fff;
+}
+.admin__bar-title {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.admin__side {
+  position: fixed;
+  inset: var(--bar) auto 0 0;
+  z-index: 20;
+  isolation: isolate;
+  width: min(var(--side), 86vw);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px 14px 16px;
+  background: var(--brand-light), var(--brand-gradient);
+  color: #fff;
+  overflow-y: auto;
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition: transform var(--dur) var(--ease), visibility 0s linear var(--dur);
+}
+/* Faint dot grid, fading toward the bottom, like the login pane. */
+.admin__side::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--brand-dots);
+  background-size: 18px 18px;
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 55%);
+  mask-image: linear-gradient(180deg, #000 0%, transparent 55%);
+}
+.admin__side :focus-visible {
+  outline-color: #fff;
+}
+.admin[data-open='true'] .admin__side {
+  transform: none;
+  visibility: visible;
+  transition: transform var(--dur) var(--ease);
+  box-shadow: 0 20px 48px rgba(8, 26, 48, 0.4);
+}
+.admin__scrim {
+  position: fixed;
+  inset: var(--bar) 0 0 0;
+  z-index: 10;
+  background: rgba(14, 30, 52, 0.46);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+.admin__brand {
+  padding: 2px 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+/* Persistent chrome: compact signature, left-aligned with the nav icons. */
+.admin__brand .signature {
+  --sig-h: 52px;
+}
+.admin__who {
+  padding: 12px 14px;
+  border-radius: var(--r-inner);
+  background: var(--glass-on-brand-bg);
+  border: 1px solid var(--glass-on-brand-border);
+  box-shadow: var(--highlight-inset);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #fff;
+}
+.admin__role {
+  font-size: var(--t-13);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--on-brand-muted);
+}
+.admin__name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.admin__nav ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin__foot {
+  display: grid;
+  gap: 4px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--glass-on-brand-border);
+}
+.admin__link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--r-control);
+  background: transparent;
+  color: var(--on-brand-muted);
+  font: inherit;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+.admin__link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.admin__link[aria-current='page'] {
+  background: var(--glass-on-brand-active);
+  border-color: var(--glass-on-brand-border);
+  box-shadow: var(--highlight-inset);
+  color: #fff;
+  font-weight: 600;
+}
+
+.admin__main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: radial-gradient(60% 45% at 100% 0%, var(--brand-tint) 0%, rgba(232, 241, 250, 0) 70%), var(--canvas);
+}
+.admin__content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.admin__banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px var(--gutter) 0;
+  padding: 12px 16px;
+  border-radius: var(--r-inner);
+  background: var(--surface);
+  border: var(--border-card);
+  box-shadow: var(--shadow-card);
+  font-size: var(--t-15);
+  animation: rise 400ms var(--ease) both;
+}
+.admin__banner--attn {
+  justify-content: flex-start;
+  background: var(--attn-tint);
+  border-color: transparent;
+  color: var(--attn);
+  box-shadow: none;
+}
+.admin__banner > svg {
+  flex: none;
+}
+
+@media (min-width: 900px) {
+  .admin {
+    grid-template-columns: var(--side) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .admin__bar,
+  .admin__scrim {
+    display: none;
+  }
+  .admin__side {
+    position: relative;
+    inset: auto;
+    padding: calc(24px + var(--safe-top)) 14px 16px;
+    width: auto;
+    transform: none;
+    visibility: visible;
+    box-shadow: 1px 0 0 rgba(8, 26, 48, 0.2);
+  }
+}
+
+/* Skip link: first tab stop, visible only while focused. */
+.skip-link {
+  position: absolute;
+  z-index: 60;
+  left: 12px;
+  top: -64px;
+  padding: 10px 16px;
+  border-radius: var(--r-control);
+  background: var(--brand-deep);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+.skip-link:focus-visible {
+  top: 12px;
+}
+.admin__content:focus {
+  outline: none;
+}
+
+/*
+ * Desktop density. Management roles use a pointer and a keyboard, so controls drop from touch size
+ * (48px) to a comfortable pointer size. Everything is scoped by html[data-surface='admin'], which only
+ * AdminShell sets, so the surveyor screens keep the touch scale. Dialogs are portaled to <body>, which
+ * is why the scope lives on <html> and not on .admin.
+ */
+@media (min-width: 900px) {
+  html[data-surface='admin'] {
+    --tap: 40px;
+    --field: 44px;
+    --gutter: 32px;
+  }
+  html[data-surface='admin'] .btn {
+    min-height: 40px;
+    padding: 0 16px;
+  }
+  html[data-surface='admin'] .btn--large {
+    min-height: 44px;
+  }
+  html[data-surface='admin'] .icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+  html[data-surface='admin'] .input {
+    font-size: var(--t-15);
+  }
+  html[data-surface='admin'] .admin__link {
+    min-height: 44px;
+  }
+  html[data-surface='admin'] .admin__side {
+    gap: 16px;
+  }
+
+  /* Dialogs are centered cards with a width that fits a two-column form. */
+  html[data-surface='admin'] .dialog {
+    width: min(100%, 640px);
+  }
+  html[data-surface='admin'] .dialog--tall {
+    width: min(100%, 960px);
+    height: min(860px, 90dvh);
+  }
+  html[data-surface='admin'] .dialog__head {
+    padding: 20px 24px 8px;
+  }
+  html[data-surface='admin'] .dialog__actions {
+    justify-content: flex-end;
+  }
+}
+@media (min-width: 900px) and (max-width: 1199px) {
+  /* Narrow desktops: give the table the width the sidebar does not need. */
+  .admin {
+    --side: 224px;
+  }
+}
+@media (min-width: 1600px) {
+  .admin {
+    --side: 280px;
+  }
+}

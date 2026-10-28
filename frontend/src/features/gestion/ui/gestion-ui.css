@@ -1,0 +1,369 @@
+/* Admin screens: page frame, filters, data table, pager, states. Tokens come from tokens.css/ui.css. */
+.admin-page {
+  width: 100%;
+  /* Grows with the window up to a reading-friendly cap; a table should use a wide screen, not float in it. */
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 28px var(--gutter) 48px;
+  display: grid;
+  gap: 20px;
+  align-content: start;
+}
+.admin-page__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+.admin-page__head h1 {
+  margin-top: 2px;
+  letter-spacing: -0.025em;
+}
+.admin-page__head p:not(.eyebrow) {
+  color: var(--ink-muted);
+  max-width: 72ch;
+  margin-top: 6px;
+}
+.admin-page__head .btn {
+  flex: none;
+}
+
+/* Filters */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+}
+.filters .field {
+  min-width: 150px;
+  flex: 1 1 150px;
+  max-width: 220px;
+}
+.nobr {
+  white-space: nowrap;
+}
+.filters .input,
+.admin-form .input {
+  min-height: 48px;
+  font-size: var(--t-15);
+}
+
+/* Data table. The stacked layout is decided by the width of the container, not the viewport. */
+.dtable-wrap {
+  container-type: inline-size;
+  container-name: dtable;
+}
+.dtable-panel {
+  background: var(--surface);
+  border: var(--border-card);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-card);
+  padding: 4px 8px;
+}
+.dtable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-15);
+}
+.dtable th {
+  text-align: left;
+  font-size: var(--t-13);
+  font-weight: 600;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 12px 10px 10px;
+  border-bottom: 1px solid var(--hairline);
+}
+.dtable td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--hairline);
+  vertical-align: middle;
+  overflow-wrap: break-word;
+}
+.dtable tbody tr:last-child td {
+  border-bottom: 0;
+}
+.dtable__end,
+.dtable th.dtable__end {
+  text-align: right;
+  white-space: nowrap;
+}
+.dtable__nowrap {
+  white-space: nowrap;
+}
+.dtable__primary {
+  font-weight: 600;
+}
+.dtable__cell {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+}
+.dtable__end .dtable__cell {
+  justify-items: end;
+}
+.cell-sub {
+  display: block;
+  font-weight: 400;
+  font-size: var(--t-13);
+  color: var(--ink-muted);
+}
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.row-actions .btn {
+  min-height: 40px;
+  padding: 0 12px;
+}
+.row-actions .icon-btn {
+  width: 40px;
+  height: 40px;
+}
+
+@container dtable (max-width: 679px) {
+  .dtable thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .dtable-panel {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+  .dtable,
+  .dtable tbody,
+  .dtable tr,
+  .dtable td {
+    display: block;
+  }
+  .dtable tr {
+    background: var(--surface);
+    border: var(--border-card);
+    border-radius: var(--r-inner);
+    box-shadow: var(--shadow-card);
+    padding: 8px 4px;
+    margin-bottom: 12px;
+  }
+  .dtable td {
+    display: grid;
+    grid-template-columns: minmax(96px, 34%) minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    padding: 8px 14px;
+    border: 0;
+    text-align: left;
+    white-space: normal;
+  }
+  .dtable td::before {
+    content: attr(data-label);
+    font-size: var(--t-13);
+    font-weight: 600;
+    color: var(--ink-muted);
+    padding-top: 3px;
+  }
+  .dtable__end .dtable__cell {
+    justify-items: start;
+  }
+  .dtable td.dtable__primary {
+    font-size: var(--t-17);
+  }
+}
+
+/* Pager and states */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--ink-muted);
+}
+.loading {
+  display: grid;
+  gap: 8px;
+}
+.state__icon--danger {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+.chip--danger {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+.confirm {
+  display: grid;
+  gap: 12px;
+}
+.confirm ul {
+  display: grid;
+  gap: 6px;
+  padding-left: 20px;
+  list-style: disc;
+  color: var(--ink-muted);
+}
+
+/* Forms in dialogs */
+.admin-form {
+  display: grid;
+  gap: 16px;
+}
+.admin-form__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  /* One column with an error must not stretch its sibling (label and input drifted apart). */
+  align-items: start;
+}
+@media (max-width: 560px) {
+  .admin-form__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.admin-note {
+  font-size: var(--t-13);
+  color: var(--ink-muted);
+}
+
+.radio-group {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r-control);
+  background: var(--fill);
+  box-shadow: inset 0 0 0 1px transparent;
+  cursor: pointer;
+  transition:
+    background-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.radio:hover {
+  background: var(--brand-tint);
+}
+.radio:has(input:checked) {
+  background: var(--brand-tint);
+  box-shadow: inset 0 0 0 1.5px rgba(32, 112, 184, 0.45);
+}
+.radio input {
+  margin-top: 4px;
+  width: 20px;
+  height: 20px;
+  accent-color: var(--brand);
+}
+.radio small {
+  display: block;
+  color: var(--ink-muted);
+  font-size: var(--t-13);
+}
+.self-chip {
+  margin-left: 8px;
+  min-height: 22px;
+  padding: 0 8px;
+}
+
+/*
+ * Desktop refinements of the shared page, filters and table. Scoped to the management surface so the
+ * stacked-card tablet layout and the surveyor screens are untouched.
+ */
+@media (min-width: 900px) {
+  html[data-surface='admin'] .admin-page {
+    padding: 24px var(--gutter) 40px;
+    gap: 16px;
+  }
+  html[data-surface='admin'] .filters {
+    gap: 10px 14px;
+  }
+  html[data-surface='admin'] .filters .field {
+    min-width: 160px;
+    flex: 1 1 160px;
+    max-width: 260px;
+    gap: 4px;
+  }
+  html[data-surface='admin'] .field__label {
+    font-size: var(--t-13);
+    color: var(--ink-muted);
+    font-weight: 600;
+  }
+  html[data-surface='admin'] .select,
+  html[data-surface='admin'] .filters .input,
+  html[data-surface='admin'] .admin-form .input {
+    min-height: 40px;
+  }
+  html[data-surface='admin'] .admin-form {
+    gap: 14px;
+  }
+  html[data-surface='admin'] .admin-form .field {
+    gap: 6px;
+  }
+}
+
+/* Dense grid: only when the container is wide enough to show the table (the stacked card keeps its size). */
+@container dtable (min-width: 680px) {
+  .dtable-panel {
+    padding: 0;
+    /* clip, not hidden: the sticky header keeps sticking to the page scroll. */
+    overflow: clip;
+  }
+  .dtable th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f6f8fb;
+    box-shadow: inset 0 -1px 0 var(--hairline);
+    border-bottom: 0;
+    padding: 12px 16px 10px;
+  }
+  .dtable td {
+    padding: 11px 16px;
+  }
+  .dtable tbody tr {
+    transition: background-color var(--dur) var(--ease);
+  }
+  .dtable tbody tr:hover td {
+    background: #f4f8fc;
+  }
+  .dtable tbody tr:focus-within td {
+    background: var(--brand-tint);
+  }
+  .dtable .row-actions .btn {
+    min-height: 32px;
+    padding: 0 12px;
+  }
+  .dtable .row-actions .icon-btn {
+    width: 32px;
+    height: 32px;
+  }
+  /* Row actions stay on one line, side by side. */
+  .dtable .row-actions,
+  .dtable .pg-actions {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+  /* Bare buttons in an actions cell (no .row-actions wrapper) sit side by side too. */
+  .dtable td.dtable__end .dtable__cell:has(> .btn) {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  .dtable td .btn:not(.btn--quiet) {
+    min-height: 32px;
+    padding: 0 12px;
+  }
+}

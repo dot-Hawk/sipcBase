@@ -1,0 +1,51 @@
+/* Audit trail: read-only table with a readable before/after in the "Cambio" column. */
+.au-diff {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.au-diff li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  align-items: baseline;
+}
+.au-diff__value {
+  white-space: nowrap;
+}
+.au-diff__text {
+  /* Free text (an observation) may wrap; amounts and dates never break in the middle. */
+  overflow-wrap: anywhere;
+}
+.au-diff__label {
+  font-size: var(--t-13);
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+.au-diff__before {
+  color: var(--ink-muted);
+  text-decoration: line-through;
+}
+.au-diff__after {
+  font-weight: 600;
+}
+.au-link {
+  min-height: 32px;
+  padding: 0 8px;
+  margin-left: -8px;
+  font-size: var(--t-13);
+  text-align: left;
+  justify-content: flex-start;
+}
+.au-switch {
+  align-self: flex-end;
+}
+.au-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}

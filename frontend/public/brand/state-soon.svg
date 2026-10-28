@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" fill="none">
+  <!-- Decorative: a chart still being built. -->
+  <defs>
+    <radialGradient id="disc" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#dcebf8" />
+      <stop offset="1" stop-color="#e8f1fa" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4f9bdc" />
+      <stop offset="1" stop-color="#2070b8" />
+    </linearGradient>
+  </defs>
+  <circle cx="120" cy="82" r="76" fill="url(#disc)" />
+  <rect x="52" y="30" width="136" height="100" rx="16" fill="#ffffff" />
+  <rect x="52.5" y="30.5" width="135" height="99" rx="15.5" stroke="#cfe4f6" />
+  <g stroke="#e3e7ee" stroke-width="2">
+    <path d="M68 108h104" />
+    <path d="M68 88h104" stroke-dasharray="3 7" />
+    <path d="M68 68h104" stroke-dasharray="3 7" />
+  </g>
+  <g>
+    <rect x="72" y="86" width="20" height="22" rx="6" fill="url(#bar)" />
+    <rect x="102" y="70" width="20" height="38" rx="6" fill="url(#bar)" />
+    <rect x="132" y="56" width="20" height="52" rx="6" fill="#a8d4fa" />
+    <rect x="132" y="56" width="20" height="52" rx="6" stroke="#7fbef0" stroke-width="2" stroke-dasharray="4 5" />
+  </g>
+  <path d="M82 80l30-16 30-14" stroke="#14487c" stroke-opacity="0.5" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 8" />
+  <!-- clock badge -->
+  <circle cx="176" cy="116" r="22" fill="#14487c" />
+  <circle cx="176" cy="116" r="15" stroke="#ffffff" stroke-width="3" />
+  <path d="M176 108v8l6 4" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M196 34l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="#7fbef0" />
+  <path d="M40 60l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#a8d4fa" />
+</svg>

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" fill="none">
+  <!-- Decorative: a shield with a lock, for restricted sections. -->
+  <defs>
+    <radialGradient id="disc" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#dcebf8" />
+      <stop offset="1" stop-color="#e8f1fa" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="shield" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4f9bdc" />
+      <stop offset="1" stop-color="#14487c" />
+    </linearGradient>
+  </defs>
+  <circle cx="120" cy="82" r="76" fill="url(#disc)" />
+  <path d="M120 22l46 16v34c0 30-19 50-46 62-27-12-46-32-46-62V38z" fill="url(#shield)" />
+  <path d="M120 22l46 16v34c0 30-19 50-46 62z" fill="#ffffff" fill-opacity="0.1" />
+  <rect x="100" y="76" width="40" height="32" rx="9" fill="#ffffff" />
+  <path d="M107 76V68a13 13 0 0 1 26 0v8" stroke="#ffffff" stroke-width="7" stroke-linecap="round" />
+  <circle cx="120" cy="91" r="5" fill="#2070b8" />
+  <path d="M120 93v8" stroke="#2070b8" stroke-width="4" stroke-linecap="round" />
+  <path d="M188 40l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="#7fbef0" />
+  <path d="M48 110l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#a8d4fa" />
+  <ellipse cx="120" cy="148" rx="40" ry="4" fill="#14487c" fill-opacity="0.08" />
+</svg>

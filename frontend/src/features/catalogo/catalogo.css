@@ -1,0 +1,84 @@
+/* Catalogue area: tab strip and the small pieces shared by its three lists. */
+.catalogo-tabs {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 20px var(--gutter) 0;
+}
+.catalogo-tabs ul {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--hairline);
+}
+.catalogo-tabs__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  text-decoration: none;
+}
+.catalogo-tabs__link {
+  border-radius: var(--r-control) var(--r-control) 0 0;
+  transition:
+    color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+}
+.catalogo-tabs__link:hover {
+  color: var(--ink);
+  background: rgba(32, 112, 184, 0.06);
+}
+.catalogo-tabs__link[aria-current='page'] {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+}
+.catalogo-tabs + .admin-page {
+  padding-top: 20px;
+}
+.cell-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.detail {
+  display: grid;
+  grid-template-columns: minmax(110px, 34%) minmax(0, 1fr);
+  gap: 10px 16px;
+  margin: 0;
+}
+.detail dt {
+  font-size: var(--t-13);
+  font-weight: 600;
+  color: var(--ink-muted);
+  padding-top: 2px;
+}
+.detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.detail__h {
+  font-size: var(--t-15);
+  margin: 16px 0 8px;
+}
+.detail__list {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+@media (max-width: 560px) {
+  .detail {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .detail dd {
+    margin-bottom: 10px;
+  }
+}
+
+.filters--search .field:first-child {
+  flex: 1.5 1 180px;
+  max-width: 280px;
+}

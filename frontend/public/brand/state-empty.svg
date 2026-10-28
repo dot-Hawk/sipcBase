@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" fill="none">
+  <!-- Decorative: an empty basket on a soft disc. Flat shapes, brand blues. -->
+  <defs>
+    <radialGradient id="disc" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#dcebf8" />
+      <stop offset="1" stop-color="#e8f1fa" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4f9bdc" />
+      <stop offset="1" stop-color="#2070b8" />
+    </linearGradient>
+  </defs>
+  <circle cx="120" cy="84" r="76" fill="url(#disc)" />
+  <path d="M84 70c0-20 16-34 36-34s36 14 36 34" stroke="#7fbef0" stroke-width="8" stroke-linecap="round" />
+  <path d="M62 70h116l-10 50a10 10 0 0 1-10 8H82a10 10 0 0 1-10-8z" fill="url(#body)" />
+  <rect x="56" y="62" width="128" height="14" rx="7" fill="#14487c" />
+  <g stroke="#ffffff" stroke-opacity="0.35" stroke-width="4" stroke-linecap="round">
+    <path d="M96 88v26" />
+    <path d="M120 88v26" />
+    <path d="M144 88v26" />
+  </g>
+  <!-- little stars -->
+  <path d="M190 34l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="#7fbef0" />
+  <path d="M46 52l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#a8d4fa" />
+  <ellipse cx="120" cy="140" rx="46" ry="5" fill="#14487c" fill-opacity="0.08" />
+</svg>

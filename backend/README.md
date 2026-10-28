@@ -1,0 +1,178 @@
+# SIPC-IPF Backend
+
+REST API for SIPC-IPF (Formosa): price survey management (relevamientos, commerces, products, assignments, prices) with role-based access.
+
+Stack: Node.js, TypeScript, Express 5, PostgreSQL with Drizzle ORM (versioned SQL migrations), `tsx`, `node:test`.
+
+## Requirements
+
+- Node.js (a version that supports ESM and `node:test`)
+- PostgreSQL 14 or newer (`docker compose up -d db` starts one for development)
+
+## Getting started
+
+```bash
+npm install
+docker compose up -d db          # PostgreSQL on localhost:5432 (user, password and database: sipc)
+cp .env.example .env             # then fill in the values
+npm run db:migrate               # create the tables
+npm run dev
+```
+
+## Environment variables
+
+See `.env.example` for the full list.
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `DATABASE_URL` | yes | PostgreSQL connection string, e.g. `postgres://sipc:sipc@localhost:5432/sipc`. The server exits on startup if it cannot connect. |
+| `PORT` | no | HTTP port. |
+| `JWT_SECRET` | yes | Secret used to sign tokens (HS256). |
+| `JWT_EXPIRES_IN` | no | Token lifetime. Defaults to `8h`. |
+| `TRUST_PROXY` | no | Number of proxy hops to trust. Set it when running behind a reverse proxy so rate limiting sees the real client IP. |
+| `SEED_NOMBRE`, `SEED_APELLIDO`, `SEED_DNI`, `SEED_LEGAJO`, `SEED_EMAIL`, `SEED_PASSWORD` | seed only | Data for the first coordinator user. |
+| `CORS_ORIGINS` | for a browser frontend | Comma separated origins allowed to call the API (e.g. `http://localhost:5173`). Empty means no cross-origin access. |
+| `UPLOADS_DIR` | no | Directory where receipt attachments are stored. Defaults to `./uploads` (git-ignored). Back it up together with the database. |
+| `ENGINE_URL` | for calculations | Base URL of the calculation engine (`engine/`). The API boots without it; `POST /api/calculos` answers `502` until it is set. |
+| `ENGINE_API_KEY` | for calculations | Key sent to the engine in `X-API-Key`. Must be the engine's own `ENGINE_API_KEY`. |
+| `ENGINE_TIMEOUT_MS` | no | How long to wait for the engine. Defaults to 120000. |
+| `DATABASE_TEST_URL` | integration tests only | Throwaway database for `test:integration`. Its schema is dropped. |
+| `ENGINE_TEST_URL`, `ENGINE_TEST_API_KEY` | calculation integration test | A running engine for `test/integration/calculo-flow.test.ts`; skipped without them. |
+
+## Scripts
+
+| Script | Description |
+| --- | --- |
+| `npm run dev` | Start the server in watch mode. |
+| `npm run db:migrate` | Apply the pending SQL migrations (`drizzle/`). |
+| `npm run db:generate` | Generate a new migration after editing `src/db/schema.ts`. |
+| `npm run seed:coordinador` | Create the first `COORDINADOR` user. |
+| `npm run import:canasta -- <dir>` | Import the basket from the official workbooks (see below). |
+| `npm run dev:bootstrap` | Local only: create the coordinator (`SEED_EMAIL`, `SEED_PASSWORD`) and sample data through the API (a test surveyor, the current month's relevamiento, 3 comercios, 5 productos and their asignaciones). Idempotent. |
+| `npm test` | Unit tests. No database needed. |
+| `npm run test:integration` | Full API flow against a real PostgreSQL. |
+| `npm run typecheck` | Type-check without emitting. |
+
+## First user (seed)
+
+No endpoint can create the first user, because user creation requires a `COORDINADOR`. Seed it once:
+
+1. Set the `SEED_*` variables in `.env`.
+2. Run `npm run seed:coordinador`.
+3. Remove `SEED_PASSWORD` from `.env`.
+
+The script is idempotent: it does nothing if a `COORDINADOR` already exists.
+
+## Tests
+
+Unit tests are colocated with the code (`src/**/*.test.ts`) and use fake repositories instead of a database:
+
+```bash
+npm test
+```
+
+The integration test (`test/integration/api-flow.test.ts`) applies the migrations and exercises the whole business flow against a real PostgreSQL:
+
+```bash
+docker run -d --rm --name sipc-pg-test -p 5433:5432 -e POSTGRES_PASSWORD=test -e POSTGRES_DB=sipc_integration_test postgres:16
+DATABASE_TEST_URL=postgres://postgres:test@127.0.0.1:5433/sipc_integration_test npm run test:integration
+docker stop sipc-pg-test
+```
+
+- It is skipped when `DATABASE_TEST_URL` is unset.
+- The schema is **dropped before and after** the run, so the test refuses to run unless the database name contains `test`.
+- Tests are sequential and share state on purpose: they model one business flow, so a failure early on cascades.
+
+## Basket (canasta)
+
+The basket is a fixed 7-level tree: `NIVEL_GENERAL` (0) → `DIVISION` → `GRUPO` → `CLASE` → `SUBCLASE` → `PRODUCTO` → `VARIEDAD` (6, the level that is priced). Every variedad also belongs to one non-hierarchical `categoria`: `NUCLEO`, `ESTACIONAL` or `REGULADO`.
+
+Import it once from the official workbooks (`PONDERADORES.xlsx`, `DICCIONARIO_VARIEDADES.xlsx`, `TRATAMIENTO_ESPECIAL.xlsx`):
+
+```bash
+npm run import:canasta -- /path/to/Recursos   # or set CANASTA_RECURSOS_DIR
+```
+
+- It is idempotent: it only writes what is new or changed, and never reactivates a deactivated variedad.
+- The spreadsheets have holes in the intermediate levels; those nodes are rebuilt from their variedades and flagged `derivado: true`.
+- Every `Producto` must point to an active variedad through `codigoVariedad` (7 digits).
+
+## API overview
+
+All routes are under `/api`. Errors are JSON and never include stack traces. Resources are identified by UUIDs (field `id`); basket nodes by their `codigo`.
+
+| Prefix | Purpose |
+| --- | --- |
+| `/api/auth` | Login (JWT), `GET /me`, `POST /password` (change your own). |
+| `/api/users` | User management (`COORDINADOR`): create, list, read, edit, `PATCH /:id/estado`, `PUT /:id/password`. |
+| `/api/relevamientos` | Survey cycles, close with `PATCH /:id/cerrar`. |
+| `/api/comercios` | Commerce catalog. |
+| `/api/canasta` | Basket tree (7 levels): read, add a variedad, deactivate a variedad. |
+| `/api/productos` | Product catalog. |
+| `/api/asignaciones` | Surveyor assignments and state transitions: create, list, read, `PATCH /:id/estado`, `PATCH /:id/encuestador` (reassign) and `PATCH /:id/cancelar` (`COORDINADOR`, no body). |
+| `/api/precios` | Price capture and queries (`oferta=true\|false` filter); `GET /anterior` for the previous price. |
+| `/api/precios/:id/adjuntos` | Receipt photos/scans of a price: upload (raw body), list, download, delete. |
+| `/api/auditoria/precios` | Audit trail of prices (not available to `ENCUESTADOR` or `AUDITOR`). |
+| `/api/calculos` | Run the calculation engine over closed relevamientos; read runs, relatives and imputations; export the engine's input as Excel/CSV (`GET /exportacion`); download the planilla of a run (`GET /:id/resultados`). |
+
+### Roles
+
+`ENCUESTADOR`, `SUPERVISOR`, `ANALISTA`, `COORDINADOR`, `DIRECCION`, `AUDITOR`.
+
+- Writes to users, relevamientos, catalogs and assignments: `COORDINADOR` only.
+- Reads: any authenticated role (`DIRECCION` is effectively read-only), except calculations: only `AUDITOR` runs and exports them, and only `AUDITOR` and `DIRECCION` read them.
+- Prices are created by `ENCUESTADOR` only, for their own `EN_CURSO` assignments; `SUPERVISOR` and `ANALISTA` correct them.
+- An `ENCUESTADOR` only sees their own data; other people's resources respond `404`, not `403`.
+
+### Business rules worth knowing
+
+- **Relevamiento:** always created `ABIERTO`; unique per period + frequency (`2026-10` monthly, `2026-10-Q1`/`Q2` biweekly); `fechaInicio` and `fechaLimite` are required ISO dates (`2026-10-01` or a full timestamp; impossible days such as `2026-02-31` are rejected) and `fechaLimite` must be strictly after `fechaInicio`, otherwise `400` with `errors: [{ field, message }]`; closing is atomic and returns `409` if already closed.
+- **Comercio / Producto:** no `DELETE`; deactivate through `PATCH /:id/estado`. A producto is unique by `nombre` + `marca` + `unidad` + `cantidadReferencia` (case-insensitive; a missing `marca` counts as one value), otherwise `409`.
+- **Asignación:** `PENDIENTE` → `EN_CURSO` → `COMPLETADA` only; reassignment only while `PENDIENTE`; requires an open relevamiento and an active commerce and surveyor.
+- **Asignación cancellation:** `PATCH /api/asignaciones/:id/cancelar` (`COORDINADOR` only, no body) is a soft cancel to the terminal estado `CANCELADA`, reachable only from `PENDIENTE` or `EN_CURSO` (never from `COMPLETADA`) and only while the relevamiento is `ABIERTO`. The row is kept as history and `GET /api/asignaciones` still returns it to the coordinator (`?estado=CANCELADA` filters it); a surveyor no longer sees it (list, total, read and `anterior` lookups), cannot move it and cannot create, edit or delete prices or attachments for that visit. Prices already loaded for that relevamiento and commerce are kept untouched. The `PATCH /:id/estado` endpoint never accepts `CANCELADA`.
+- **One live asignación per commerce:** the database rule is a partial unique index `asignaciones_relevamiento_comercio_uq` on (`relevamiento_id`, `comercio_id`) that only counts `PENDIENTE`, `EN_CURSO` and `COMPLETADA` rows, so cancelling frees the commerce to be assigned again (to the same or another surveyor). A duplicate among live rows is still `409 COMERCIO_ALREADY_ASSIGNED`. The predicate lists the live estados rather than `<> 'CANCELADA'` because PostgreSQL cannot use an enum value in the transaction that adds it; a future estado must be added to that list in a new migration.
+- **Users:** `POST /api/users` trims `nombre`, `apellido`, `dni` and `legajo` (as `PATCH` does) and answers the same view as the other user endpoints, `ultimoAcceso` included.
+- **Stable `code` on assignment and user `409`s:** next to the human `message`, the `409` of `/api/asignaciones` and `/api/users` carry a `code` clients can branch on: `RELEVAMIENTO_NOT_ABIERTO` (create, change estado of, or cancel an asignacion in a closed relevamiento), `COMERCIO_ALREADY_ASSIGNED` (the commerce already has an asignacion in that relevamiento), `INVALID_ESTADO_TRANSITION`, `ASIGNACION_CONCURRENT_MODIFICATION` (retry), `ASIGNACION_NOT_PENDIENTE` (reassignment), `ASIGNACION_NOT_CANCELABLE` (cancelling an asignacion that is `COMPLETADA` or already `CANCELADA`), `USER_DUPLICATE` and `LAST_COORDINADOR` (see below). `USER_DUPLICATE` also brings `errors: [{ field, message }]` with the colliding `dni`, `legajo` or `email`; the database constraint stays the source of truth.
+- **Never without an active coordinador:** a change that would leave no user with role `COORDINADOR` and estado `ACTIVO` is refused with `409` and `{ message, code: "LAST_COORDINADOR" }`. It applies to `PATCH /api/users/:id` moving `role` away from `COORDINADOR`, and to `PATCH /api/users/:id/estado` setting a coordinador to `INACTIVO` or `LICENCIA`; an inactive coordinador counts as zero. Other changes (other roles, names, activating) are unaffected, and the self-change `403`s stay. The check and the write run in one transaction that locks the active coordinadores (`SELECT ... FOR UPDATE`), so two coordinadores deactivating each other at the same time cannot both succeed. A request whose actor was deactivated by the winner of that race may get `401` instead, because the session is already cut.
+- **Pagination and `X-Total-Count`:** `GET /api/users`, `GET /api/relevamientos` and `GET /api/asignaciones` answer the total number of matching rows (ignoring the page) in the `X-Total-Count` header, which CORS exposes to browsers; the body stays a plain array. `users` always pages (`page` default 1, `limit` default and maximum as in `GET /api/precios`). On `relevamientos` and `asignaciones`, `page` and `limit` are optional positive integers (`400` otherwise): without them every row is returned, as before.
+- **Precio:** `valor > 0`, date not in the future nor before the relevamiento start; edit/delete only by the owner while the relevamiento is open and the assignment is `EN_CURSO` (a `CANCELADA` one blocks it). On `PATCH`, an empty, blank or `null` `observacion` clears it. `oferta` marks a promotional price: it is stored as registered and only used to filter. A `SUPERVISOR` or an `ANALISTA` can correct (`PATCH`, not delete) any price, even after the assignment is `COMPLETADA`, but only while the relevamiento is open.
+- **Previous price:** `GET /api/precios/anterior?relevamiento=&comercio=&producto=` answers `{valor, periodo, oferta}` of the latest price of that producto at that comercio from a relevamiento that started before the given one, whoever loaded it and promotional or not (`204` when there is none). A surveyor can only ask about a commerce they are assigned to in that relevamiento (`404` otherwise); the other roles are not restricted.
+- **Price warning:** a new price (or a new value) is judged by its variation, `valor / precioAnterior`, where `precioAnterior` is the latest non-promotional price of the same producto in the same commerce from a relevamiento that started earlier (no previous price, no warning). That variation is compared with the historical variations of the producto's variedad (`productos.codigo_variedad`) across all its productos and commerces: for each (producto, commerce), every consecutive pair of non-promotional prices ordered by relevamiento start, only from relevamientos that started before the current one, computed in SQL with `LAG`. It is flagged when it falls outside the 5th-95th percentile of that distribution (linear interpolation, type 7), and only with at least 20 variations; the band is never narrower than 0.90-1.10, so a flat history does not flag every change. A producto without `codigoVariedad` is not judged (the column is `NOT NULL` today, so this is only a guard). The four values (`percentilInferior`, `percentilSuperior`, `muestraMinima`, `toleranciaMinima`) are constants in `src/domain/desvio.ts` with an options override, to be tuned. The flag is a warning, not a rejection: `POST`/`PATCH /api/precios` answers `409` with `requiereConfirmacion` and the `alerta` (`metodo: "PERCENTIL_VARIACION"`, `variedad`, `precioAnterior`, `variacion`, `percentilInferior`, `percentilSuperior`, `limiteInferior`, `limiteSuperior`, `rangoPrecio: { min, max }`, `n`); resend it with `confirmarDesvio: true` to save it, and it is stored with its `alerta`. Prices saved before this rule keep their legacy `alerta` (`{ media, desvio, n, limiteInferior, limiteSuperior }`, no `metodo`); they are not migrated. Promotional prices are not judged. `GET /api/precios?conAlerta=true` lists the confirmed ones for review.
+- **Calculation:** `POST /api/calculos` (`AUDITOR` only) takes `mesBase` and `mesObjetivo` and recalculates the whole series between them. Every month of the range must have relevamientos and all of them must be `CERRADO` (`409` otherwise), so a run can be reproduced from its inputs. Prices of one variedad in one commerce and month are averaged; `excluirOfertas` leaves promotional prices out. Each run is stored with its parameters, a hash of the input, the engine version, the relatives and the imputations; it is never edited. Reads (`GET /api/calculos`, `/:id`, `/:id/relativos`, `/:id/imputaciones`) are open to `AUDITOR` and `DIRECCION`; every other role gets `403`.
+- **Calculation is asynchronous:** `POST /api/calculos` validates the range (`409` if it is not closed or has no prices) and answers `202` with the run in state `EJECUTANDO`; the engine works in the background (about 15 s for a year of real data). Read the outcome with `GET /api/calculos/:id` until it is `COMPLETADO` (relatives and imputations available) or `FALLIDO` (the `error` field says why: the engine rejected the data or was unavailable). Only one run executes at a time (`409` otherwise); a run stuck as `EJECUTANDO` for more than 10 minutes is considered abandoned and failed by the next start.
+- **Export for the engine:** `GET /api/calculos/exportacion?mesBase=AAAA-MM&mesObjetivo=AAAA-MM[&excluirOfertas=true][&formato=xlsx|csv]` (`AUDITOR` only) downloads exactly the input a run would use, under the same rules (whole range `CERRADO`, with prices). `xlsx` (default) is the workbook the engine's `POST /v1/calculo/excel` reads: sheet `Precios` (`VARIEDAD`, `INFORMANTE`, `TIPO`, `MES`, `PRECIO`) and sheet `Variedades` (`GRUPO_1`..`GRUPO_n`, `TRATAMIENTO_ESPECIAL`). `csv` is the `Precios` sheet only, for review. `INFORMANTE` is the commerce id.
+- **Results planilla:** `GET /api/calculos/:id/resultados[?formato=xlsx|csv]` (`AUDITOR`, `DIRECCION`) downloads a completed run. `xlsx` (default) has the sheets `Relativos` (one row per variedad, one column per month), `Imputaciones` and `Corrida` (month range, parameters, engine version and input hash, so the file explains itself); `csv` is the relatives pivot only. A run that failed answers `409`. The system does not compute the final index: this is the relatives up to variedad level.
+- **Sessions follow the database:** on every request the user is read from the database, so deactivating a user (`INACTIVO` or `LICENCIA`) or changing their role applies on their next request, not when their token expires. A coordinator cannot change their own role or estado (so the system is never left without one). A password reset or change does not revoke tokens already issued; deactivate the user if that matters.
+- **Login rate limit:** only failed attempts count; 5 per IP+email and 30 per IP every 15 minutes, then `429` with `Retry-After`. Counters live in memory, so they reset on restart and are not shared between instances.
+- **Attachments:** a price can carry up to 5 receipt files (JPEG, PNG, WebP or PDF, 5 MB each). `POST /api/precios/:id/adjuntos` takes the file as the raw request body; the type is decided from the bytes, not from the declared `Content-Type` (`415` otherwise, `413` over the limit). Only the owner surveyor can add or remove them, under the same conditions as editing the price (relevamiento `ABIERTO`, asignacion `EN_CURSO`). Reading follows the price's visibility, and downloads are sent as `attachment`, `nosniff` and uncached. Adding and removing leave `ADJUNTO_AGREGADO` / `ADJUNTO_ELIMINADO` entries in the audit trail (with file size and SHA-256). Files live on local disk behind the `AttachmentStorage` interface (`src/storage/`); moving to an object store means another implementation of it.
+
+## Project layout
+
+```
+src/
+  app.ts            Express app (routes, error handlers)
+  server.ts         Entry point (DB connection, listen)
+  config/           Auth configuration
+  db/               Drizzle schema, connection, migration runner
+  repositories/     Data access behind interfaces (the only code that talks SQL)
+  auth/             Token service, seed logic
+  services/         Import of the basket
+  controllers/      Factories that receive repositories (testable with fakes)
+  domain/           Pure business rules and the shared enums
+  middlewares/      authenticate, authorize, validateBody, rate limit
+  routes/           Routers
+  validators/       Hand-written input validators
+  utils/            SQL error mapping, uuid checks
+  scripts/          CLI scripts (seed, basket import)
+drizzle/            Versioned SQL migrations
+engine/             Calculation engine (Python, FastAPI): see engine/README.md
+test/integration/   End-to-end flow against PostgreSQL
+```
+
+## Known limitations
+
+- Rate limiting is per process; use a shared store (e.g. Redis) before running multiple instances.
+- Quality changes (`Camb.Calidad`) are not modelled: the original scripts took them from the INDEC export and this system has no equivalent yet. See `engine/README.md`.
+- The relatives are per variedad. Aggregation to products, classes and groups needs the formula confirmed with the statisticians.
+- Attachments are stored on the server's local disk: with several backend instances they need a shared volume or an object-store implementation of `AttachmentStorage`.
+- The calculation runs in the API process, in the background of the request. It is meant for a single instance: a run in progress dies with the process (it is marked `FALLIDO` at the next boot) and only one run executes at a time.

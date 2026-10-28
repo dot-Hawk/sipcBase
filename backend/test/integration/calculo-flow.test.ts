@@ -1,0 +1,557 @@
+import { after, before, describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { type Server } from "node:http";
+import { type AddressInfo } from "node:net";
+
+// Integration test of the calculation: real Express app, real PostgreSQL and the real engine.
+//
+//   DATABASE_TEST_URL=postgres://postgres:test@127.0.0.1:5433/sipc_integration_test \
+//   ENGINE_TEST_URL=http://127.0.0.1:8765 ENGINE_TEST_API_KEY=smoke-key \
+//   npm run test:integration
+//
+// The schema is DROPPED before and after the run, so the database name must contain "test".
+
+const DATABASE_TEST_URL = process.env["DATABASE_TEST_URL"];
+const ENGINE_TEST_URL = process.env["ENGINE_TEST_URL"];
+const ENGINE_TEST_API_KEY = process.env["ENGINE_TEST_API_KEY"];
+
+const skipReason = !DATABASE_TEST_URL
+  ? "DATABASE_TEST_URL is not set"
+  : !/test/i.test(new URL(DATABASE_TEST_URL).pathname)
+    ? 'the database name must contain "test"'
+    : !ENGINE_TEST_URL || !ENGINE_TEST_API_KEY
+      ? "ENGINE_TEST_URL and ENGINE_TEST_API_KEY are not set"
+      : false;
+
+const PASSWORD = "password-largo-1";
+
+describe("Calculation flow (real PostgreSQL and engine)", { skip: skipReason }, () => {
+  let server: Server;
+  let baseUrl: string;
+  let db: typeof import("../../src/db/index.js") | undefined;
+  const tokens = {} as {
+    coord: string;
+    analista: string;
+    encuestador: string;
+    auditor: string;
+    direccion: string;
+    supervisor: string;
+  };
+  // Starts a run (202, EJECUTANDO) and waits until the background job ends it.
+  async function runCalculo(token: string, body: unknown) {
+    const started = await api("POST", "/api/calculos", { token, body });
+    if (started.status !== 202) return started;
+
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const current = await api("GET", `/api/calculos/${started.body.id}`, { token });
+      if (current.body.estado !== "EJECUTANDO") return { status: 202, body: current.body, startedAs: started.body };
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    throw new Error("The run did not finish in time");
+  }
+  let calculoId: string;
+
+  async function api(method: string, path: string, options: { token?: string; body?: unknown } = {}) {
+    const response = await fetch(`${baseUrl}${path}`, {
+      method,
+      headers: {
+        "content-type": "application/json",
+        ...(options.token ? { authorization: `Bearer ${options.token}` } : {}),
+      },
+      ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+    });
+    const text = await response.text();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return { status: response.status, body: (text ? JSON.parse(text) : undefined) as any };
+  }
+
+  before(async () => {
+    process.env["JWT_SECRET"] = "integration-test-secret";
+    process.env["DATABASE_URL"] = DATABASE_TEST_URL as string;
+    process.env["ENGINE_URL"] = ENGINE_TEST_URL as string;
+    process.env["ENGINE_API_KEY"] = ENGINE_TEST_API_KEY as string;
+
+    db = await import("../../src/db/index.js");
+    const { pool } = db.getDbHandle();
+    await pool.query("DROP SCHEMA IF EXISTS drizzle CASCADE");
+    await pool.query("DROP SCHEMA public CASCADE");
+    await pool.query("CREATE SCHEMA public");
+    await (await import("../../src/db/migrate.js")).runMigrations();
+
+    const [{ default: app }, schema, { buildCanasta }, { importCanasta }, { createCanastaRepository }, bcrypt] =
+      await Promise.all([
+        import("../../src/app.js"),
+        import("../../src/db/schema.js"),
+        import("../../src/domain/canasta.js"),
+        import("../../src/services/canasta-import.service.js"),
+        import("../../src/repositories/canasta.repository.js"),
+        import("bcryptjs"),
+      ]);
+    const drizzle = db.getDb();
+
+    const chain = { producto: "11111", subclase: "1111", clase: "111", grupo: "11", division: "1" };
+    const basket = buildCanasta({
+      nodos: [
+        { codigo: "0", nombre: "NIVEL GENERAL", nivel: 0, ponderador: 1 },
+        { codigo: "1", nombre: "ALIMENTOS", nivel: 1, ponderador: 1 },
+        { codigo: "11", nombre: "EN EL HOGAR", nivel: 2, ponderador: 1 },
+        { codigo: "111", nombre: "PANIFICACION", nivel: 3, ponderador: 1 },
+        { codigo: "1111", nombre: "PANIFICACION", nivel: 4, ponderador: 1 },
+        { codigo: "11111", nombre: "Pan fresco", nivel: 5, ponderador: 1 },
+        { codigo: "1111101", nombre: "Arroz", nivel: 6, ponderador: 1, ...chain },
+      ],
+      categorias: { NUCLEO: ["1111101"], ESTACIONAL: [], REGULADO: [] },
+      codigos12: { "1111101": "A0111111" },
+      tratamientoEspecial: [],
+    });
+    await importCanasta(createCanastaRepository(drizzle), basket.nodos);
+
+    const passwordHash = await bcrypt.default.hash(PASSWORD, 4);
+    const [coord, analista, encuestador] = await drizzle
+      .insert(schema.users)
+      .values(
+        (["COORDINADOR", "ANALISTA", "ENCUESTADOR", "AUDITOR", "DIRECCION", "SUPERVISOR"] as const).map((role, i) => ({
+          nombre: role,
+          apellido: "Test",
+          dni: `3000000${i}`,
+          legajo: `T-${i}`,
+          email: `${role.toLowerCase()}@calc.test`,
+          passwordHash,
+          role,
+          estado: "ACTIVO" as const,
+        })),
+      )
+      .returning();
+    assert.ok(coord && analista && encuestador);
+
+    const [almacen1, almacen2, super1] = await drizzle
+      .insert(schema.comercios)
+      .values([
+        { nombre: "Almacen 1", direccion: "x", zona: "Centro", tipo: "ALMACEN", estado: "ACTIVO" },
+        { nombre: "Almacen 2", direccion: "x", zona: "Centro", tipo: "ALMACEN", estado: "ACTIVO" },
+        { nombre: "Super 1", direccion: "x", zona: "Centro", tipo: "SUPERMERCADO", estado: "ACTIVO" },
+      ])
+      .returning();
+    const [producto] = await drizzle
+      .insert(schema.productos)
+      .values({
+        nombre: "Arroz",
+        categoria: "Almacen",
+        unidad: "KG",
+        cantidadReferencia: 1,
+        codigoVariedad: "1111101",
+        estado: "ACTIVO",
+      })
+      .returning();
+    assert.ok(almacen1 && almacen2 && super1 && producto);
+
+    const periodos = ["2026-01", "2026-02", "2026-03"];
+    const relevamientos = await drizzle
+      .insert(schema.relevamientos)
+      .values(
+        periodos.map((periodo, i) => ({
+          periodo,
+          frecuencia: "MENSUAL" as const,
+          fechaInicio: new Date(`2026-0${i + 1}-01T00:00:00Z`),
+          fechaLimite: new Date(`2026-0${i + 1}-28T00:00:00Z`),
+          estado: "CERRADO" as const,
+        })),
+      )
+      .returning();
+
+    // Almacen 1: 100, 110, 132. Almacen 2: 100, 100, 110. Super 1: 200, 220 and no price in March.
+    const valores: Record<string, (number | null)[]> = {
+      [almacen1.id]: [100, 110, 132],
+      [almacen2.id]: [100, 100, 110],
+      [super1.id]: [200, 220, null],
+    };
+    const rows = relevamientos.flatMap((relevamiento, mes) =>
+      Object.entries(valores).flatMap(([comercio, precios]) => {
+        const valor = precios[mes];
+        return valor === null || valor === undefined
+          ? []
+          : [
+              {
+                relevamiento: relevamiento.id,
+                producto: producto.id,
+                comercio,
+                encuestador: encuestador.id,
+                valor,
+                fechaRelevamiento: relevamiento.fechaInicio,
+              },
+            ];
+      }),
+    );
+    await drizzle.insert(schema.precios).values(rows);
+
+    server = await new Promise<Server>((resolve) => {
+      const s = app.listen(0, "127.0.0.1", () => resolve(s));
+    });
+    baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+
+    for (const [key, email] of [
+      ["coord", "coordinador@calc.test"],
+      ["analista", "analista@calc.test"],
+      ["encuestador", "encuestador@calc.test"],
+      ["auditor", "auditor@calc.test"],
+      ["direccion", "direccion@calc.test"],
+      ["supervisor", "supervisor@calc.test"],
+    ] as const) {
+      const login = await api("POST", "/api/auth/login", { body: { email, password: PASSWORD } });
+      assert.equal(login.status, 200);
+      tokens[key] = login.body.token;
+    }
+  });
+
+  after(async () => {
+    server?.close();
+    if (db) {
+      const { pool } = db.getDbHandle();
+      await pool.query("DROP SCHEMA IF EXISTS drizzle CASCADE");
+      await pool.query("DROP SCHEMA public CASCADE");
+      await pool.query("CREATE SCHEMA public");
+      await db.closeDb();
+    }
+  });
+
+  it("only the auditor can run a calculation; direccion can read but not run", async () => {
+    const body = { mesBase: "2026-01", mesObjetivo: "2026-03" };
+    const exportUrl = "/api/calculos/exportacion?mesBase=2026-01&mesObjetivo=2026-03";
+
+    for (const token of [tokens.analista, tokens.coord, tokens.supervisor, tokens.direccion, tokens.encuestador]) {
+      assert.equal((await api("POST", "/api/calculos", { token, body })).status, 403);
+      assert.equal((await api("GET", exportUrl, { token })).status, 403);
+    }
+    for (const token of [tokens.analista, tokens.coord, tokens.supervisor, tokens.encuestador]) {
+      assert.equal((await api("GET", "/api/calculos", { token })).status, 403);
+    }
+    assert.equal((await api("GET", "/api/calculos", { token: tokens.direccion })).status, 200);
+    assert.equal((await api("POST", "/api/calculos", { body })).status, 401);
+    assert.equal(
+      (await api("POST", "/api/calculos", { token: tokens.auditor, body: { mesBase: "x" } })).status,
+      400,
+    );
+  });
+
+  it("runs the engine over closed relevamientos, imputes and stores the results", async () => {
+    const created = await runCalculo(tokens.auditor, { mesBase: "2026-01", mesObjetivo: "2026-03" });
+
+    assert.equal(created.status, 202);
+    assert.equal((created as { startedAs: { estado: string } }).startedAs.estado, "EJECUTANDO");
+    assert.equal(created.body.estado, "COMPLETADO");
+    assert.equal(created.body.motorVersion.length > 0, true);
+    assert.equal(created.body.resumen.imputaciones, 1);
+    assert.equal(created.body.resumen.sinImputar, 0);
+    assert.match(created.body.entradaHash, /^[0-9a-f]{64}$/);
+    calculoId = created.body.id;
+
+    const relativos = await api("GET", `/api/calculos/${calculoId}/relativos`, { token: tokens.auditor });
+    assert.equal(relativos.status, 200);
+    assert.equal(relativos.body.length, 2);
+
+    // February: Almacen 1 +10%, Almacen 2 0%, Super 1 +10%.
+    // TRAD = geometric mean of 110/100 and 100/100; SUPER = 220/200. Weights 0.75 / 0.25.
+    const trad = Math.sqrt(1.1 * 1.0);
+    const february = relativos.body.find((r: { mes: string }) => r.mes === "2026-02");
+    assert.ok(Math.abs(february.valor - Math.pow(1.1, 0.25) * Math.pow(trad, 0.75)) < 1e-9);
+    assert.equal(february.nSuper, 1);
+    assert.equal(february.nTrad, 2);
+
+    const imputaciones = await api("GET", `/api/calculos/${calculoId}/imputaciones`, { token: tokens.auditor });
+    assert.equal(imputaciones.body.length, 1);
+    assert.equal(imputaciones.body[0].mes, "2026-03");
+    assert.equal(imputaciones.body[0].nivel, 0);
+    // The missing March price is February's 220 times the geometric mean of 132/110 and 110/100.
+    assert.ok(Math.abs(imputaciones.body[0].precio - 220 * Math.sqrt(1.2 * 1.1)) < 1e-6);
+  });
+
+  it("lists and reads runs, and filters the relatives", async () => {
+    const list = await api("GET", "/api/calculos", { token: tokens.auditor });
+    assert.equal(list.body.length, 1);
+
+    const one = await api("GET", `/api/calculos/${calculoId}`, { token: tokens.auditor });
+    assert.equal(one.body.id, calculoId);
+
+    const filtered = await api("GET", `/api/calculos/${calculoId}/relativos?mes=2026-03`, { token: tokens.auditor });
+    assert.equal(filtered.body.length, 1);
+
+    const asDireccion = await api("GET", `/api/calculos/${calculoId}`, { token: tokens.direccion });
+    assert.equal(asDireccion.body.id, calculoId);
+
+    for (const token of [tokens.analista, tokens.coord, tokens.supervisor, tokens.encuestador]) {
+      assert.equal((await api("GET", `/api/calculos/${calculoId}`, { token })).status, 403);
+      assert.equal((await api("GET", `/api/calculos/${calculoId}/relativos`, { token })).status, 403);
+      assert.equal((await api("GET", `/api/calculos/${calculoId}/imputaciones`, { token })).status, 403);
+    }
+    assert.equal(
+      (await api("GET", "/api/calculos/00000000-0000-4000-8000-000000000099", { token: tokens.auditor })).status,
+      404,
+    );
+  });
+
+  it("leaves out promotional prices when asked, producing a different input", async () => {
+    const { pool } = (db as NonNullable<typeof db>).getDbHandle();
+    await pool.query("UPDATE precios SET oferta = true WHERE valor = 132");
+
+    const withOffers = await runCalculo(tokens.auditor, { mesBase: "2026-01", mesObjetivo: "2026-03" });
+    const withoutOffers = await runCalculo(tokens.auditor, {
+      mesBase: "2026-01",
+      mesObjetivo: "2026-03",
+      excluirOfertas: true,
+    });
+
+    assert.equal(withOffers.body.estado, "COMPLETADO");
+    assert.equal(withoutOffers.body.estado, "COMPLETADO");
+    assert.notEqual(withOffers.body.entradaHash, withoutOffers.body.entradaHash);
+    assert.equal(withoutOffers.body.excluirOfertas, true);
+  });
+
+  it("runs one calculation at a time and frees a run that was abandoned", async () => {
+    const { pool } = (db as NonNullable<typeof db>).getDbHandle();
+    const body = { mesBase: "2026-01", mesObjetivo: "2026-03" };
+
+    // A run that is still executing blocks a new one...
+    await pool.query(
+      `INSERT INTO calculos (mes_base, mes_objetivo, parametros, entrada_hash, estado, creado_por)
+       SELECT '2026-01', '2026-03', '{}'::jsonb, 'stuck', 'EJECUTANDO', id FROM users LIMIT 1`,
+    );
+    const busy = await api("POST", "/api/calculos", { token: tokens.auditor, body });
+    assert.equal(busy.status, 409);
+    assert.match(busy.body.message, /en ejecución/);
+
+    // ...but one that has been "running" for far too long was abandoned (crash, restart).
+    await pool.query("UPDATE calculos SET created_at = now() - interval '1 hour' WHERE entrada_hash = 'stuck'");
+    const freed = await runCalculo(tokens.auditor, body);
+    assert.equal(freed.body.estado, "COMPLETADO");
+
+    const stuck = await pool.query("SELECT estado, error FROM calculos WHERE entrada_hash = 'stuck'");
+    assert.equal(stuck.rows[0].estado, "FALLIDO");
+    assert.match(stuck.rows[0].error, /interrupted/);
+  });
+
+  it("downloads the planilla of a run for AUDITOR and DIRECCION", async () => {
+    const url = `${baseUrl}/api/calculos/${calculoId}/resultados`;
+
+    const csv = await fetch(`${url}?formato=csv`, { headers: { authorization: `Bearer ${tokens.auditor}` } });
+    assert.equal(csv.status, 200);
+    const lines = (await csv.text()).trim().split("\r\n");
+    assert.equal(lines[0], "VARIEDAD,2026-02,2026-03");
+    assert.equal(lines.length, 1 + new Set((await api("GET", `/api/calculos/${calculoId}/relativos`, { token: tokens.auditor })).body.map((r: { variedad: string }) => r.variedad)).size);
+
+    const xlsx = await fetch(url, { headers: { authorization: `Bearer ${tokens.auditor}` } });
+    assert.equal(xlsx.status, 200);
+    assert.equal((await xlsx.arrayBuffer()).byteLength > 0, true);
+
+    const asDireccion = await fetch(`${url}?formato=csv`, { headers: { authorization: `Bearer ${tokens.direccion}` } });
+    assert.equal(asDireccion.status, 200);
+
+    for (const token of [tokens.analista, tokens.coord, tokens.supervisor, tokens.encuestador]) {
+      assert.equal((await fetch(url, { headers: { authorization: `Bearer ${token}` } })).status, 403);
+    }
+  });
+
+  it("exports the engine input as a file the engine accepts, with the same result as the run", async () => {
+    const query = "mesBase=2026-01&mesObjetivo=2026-03";
+    const url = (formato: string) => `${baseUrl}/api/calculos/exportacion?${query}&formato=${formato}`;
+    const headers = (token: string) => ({ authorization: `Bearer ${token}` });
+
+    for (const token of [tokens.analista, tokens.coord, tokens.supervisor, tokens.direccion, tokens.encuestador]) {
+      assert.equal((await fetch(url("xlsx"), { headers: headers(token) })).status, 403);
+    }
+
+    const csv = await fetch(url("csv"), { headers: headers(tokens.auditor) });
+    assert.equal(csv.status, 200);
+    const lines = (await csv.text()).trim().split("\r\n");
+    assert.equal(lines[0], "VARIEDAD,INFORMANTE,TIPO,MES,PRECIO");
+    assert.ok(lines.length > 1);
+
+    const xlsx = await fetch(url("xlsx"), { headers: headers(tokens.auditor) });
+    assert.equal(xlsx.status, 200);
+    const file = await xlsx.arrayBuffer();
+
+    const form = new FormData();
+    form.set("file", new Blob([file]), "precios.xlsx");
+    form.set("mesBase", "2026-01");
+    form.set("mesObjetivo", "2026-03");
+    const engineResponse = await fetch(`${ENGINE_TEST_URL}/v1/calculo/excel`, {
+      method: "POST",
+      headers: { "x-api-key": ENGINE_TEST_API_KEY as string },
+      body: form,
+    });
+    assert.equal(engineResponse.status, 200);
+    const fromFile = (await engineResponse.json()) as { relativos: { variedad: string; mes: string; valor: number }[] };
+
+    const stored = await api("GET", `/api/calculos/${calculoId}/relativos`, { token: tokens.auditor });
+    const key = (r: { variedad: string; mes: string }) => `${r.variedad}|${r.mes}`;
+    const expected = new Map<string, number>(stored.body.map((r: { variedad: string; mes: string; valor: number }) => [key(r), r.valor]));
+    for (const relativo of fromFile.relativos.filter((r) => r.valor !== null)) {
+      assert.ok(Math.abs((expected.get(key(relativo)) ?? NaN) - relativo.valor) < 1e-9);
+    }
+    assert.equal(fromFile.relativos.filter((r) => r.valor !== null).length, stored.body.length);
+  });
+
+  it("answers the previous price whoever loaded it, only for a commerce the surveyor is assigned to", async () => {
+    const { pool } = (db as NonNullable<typeof db>).getDbHandle();
+    const bcrypt = await import("bcryptjs");
+    const hash = await bcrypt.default.hash(PASSWORD, 4);
+
+    // A second surveyor: the prices of the fixture were all loaded by the first one.
+    await pool.query(
+      `INSERT INTO users (nombre, apellido, dni, legajo, email, password_hash, role, estado)
+       VALUES ('Otro', 'Encuestador', '39999999', 'T-9', 'otro@calc.test', $1, 'ENCUESTADOR', 'ACTIVO')`,
+      [hash],
+    );
+    const ids = async (sql: string) => (await pool.query(sql)).rows[0].id as string;
+    const otro = await ids("SELECT id FROM users WHERE email = 'otro@calc.test'");
+    const marzo = await ids("SELECT id FROM relevamientos WHERE periodo = '2026-03'");
+    const enero = await ids("SELECT id FROM relevamientos WHERE periodo = '2026-01'");
+    const almacen1 = await ids("SELECT id FROM comercios WHERE nombre = 'Almacen 1'");
+    const almacen2 = await ids("SELECT id FROM comercios WHERE nombre = 'Almacen 2'");
+    const producto = await ids("SELECT id FROM productos LIMIT 1");
+    await pool.query(
+      "INSERT INTO asignaciones (relevamiento_id, encuestador_id, comercio_id, estado) VALUES ($1, $2, $3, 'EN_CURSO')",
+      [marzo, otro, almacen1],
+    );
+    const login = await api("POST", "/api/auth/login", { body: { email: "otro@calc.test", password: PASSWORD } });
+    const token = login.body.token as string;
+
+    const ask = (who: string, relevamiento: string, comercio: string) =>
+      api("GET", `/api/precios/anterior?relevamiento=${relevamiento}&comercio=${comercio}&producto=${producto}`, {
+        token: who,
+      });
+
+    // February's 110 at Almacen 1 was loaded by the other surveyor.
+    const previous = await ask(token, marzo, almacen1);
+    assert.equal(previous.status, 200);
+    assert.deepEqual(previous.body, { valor: 110, periodo: "2026-02", oferta: false });
+
+    // Nothing before January, a commerce they are not assigned to is hidden, other roles are not restricted.
+    assert.equal((await ask(token, enero, almacen1)).status, 404);
+    assert.equal((await ask(token, marzo, almacen2)).status, 404);
+    assert.equal((await ask(tokens.analista, enero, almacen1)).status, 204);
+    const byAnalista = await ask(tokens.analista, marzo, almacen2);
+    assert.equal(byAnalista.status, 200);
+    assert.equal(byAnalista.body.valor, 100);
+    assert.equal((await api("GET", "/api/precios/anterior?comercio=x", { token })).status, 400);
+    assert.equal((await api("GET", "/api/precios/anterior")).status, 401);
+  });
+
+  it("refuses to run while a relevamiento of the range is open", async () => {
+    const { pool } = (db as NonNullable<typeof db>).getDbHandle();
+    await pool.query("UPDATE relevamientos SET estado = 'ABIERTO' WHERE periodo = '2026-02'");
+
+    const res = await api("POST", "/api/calculos", {
+      token: tokens.auditor,
+      body: { mesBase: "2026-01", mesObjetivo: "2026-03" },
+    });
+
+    assert.equal(res.status, 409);
+    assert.match(res.body.message, /2026-02/);
+  });
+
+  it("warns when the variation of a new price is outside the usual range of its variedad", async () => {
+    const { pool } = (db as NonNullable<typeof db>).getDbHandle();
+    await pool.query("UPDATE relevamientos SET estado = 'CERRADO'");
+    // An earlier test marked a price as a promotion, and promotions are not part of the history.
+    await pool.query("UPDATE precios SET oferta = false");
+
+    const rel = await pool.query(
+      `INSERT INTO relevamientos (periodo, frecuencia, fecha_inicio, fecha_limite, estado)
+       VALUES ('2026-04', 'MENSUAL', '2026-04-01', '2026-04-28', 'ABIERTO') RETURNING id`,
+    );
+    const comercio = await pool.query("SELECT id FROM comercios WHERE nombre = 'Almacen 1'");
+    const encuestador = await pool.query("SELECT id FROM users WHERE role = 'ENCUESTADOR'");
+    const producto = await pool.query("SELECT id FROM productos LIMIT 1");
+    await pool.query(
+      `INSERT INTO asignaciones (relevamiento_id, encuestador_id, comercio_id, estado)
+       VALUES ($1, $2, $3, 'EN_CURSO')`,
+      [rel.rows[0].id, encuestador.rows[0].id, comercio.rows[0].id],
+    );
+
+    // Another producto of the same variedad, in ten more commerces, gives the variedad enough history:
+    // 10 x 2 variations of about +1% plus the 5 of the main producto (+10%, +20%, 0%, +10%, +10%).
+    const variedad = await pool.query("SELECT id, codigo_variedad FROM productos WHERE id = $1", [
+      producto.rows[0].id,
+    ]);
+    const otro = await pool.query(
+      `INSERT INTO productos (nombre, categoria, unidad, cantidad_referencia, codigo_variedad, estado)
+       VALUES ('Arroz 2', 'Almacen', 'KG', 2, $1, 'ACTIVO') RETURNING id`,
+      [variedad.rows[0].codigo_variedad],
+    );
+    const meses = await pool.query("SELECT id FROM relevamientos WHERE periodo < '2026-04' ORDER BY periodo");
+    for (let i = 0; i < 10; i++) {
+      const extra = await pool.query(
+        `INSERT INTO comercios (nombre, direccion, zona, tipo, estado)
+         VALUES ($1, 'x', 'Centro', 'ALMACEN', 'ACTIVO') RETURNING id`,
+        [`Historia ${i}`],
+      );
+      for (const [j, valor] of [100, 101, 102].entries()) {
+        await pool.query(
+          `INSERT INTO precios (relevamiento_id, producto_id, comercio_id, encuestador_id, valor, fecha_relevamiento)
+           VALUES ($1, $2, $3, $4, $5, now())`,
+          [meses.rows[j].id, otro.rows[0].id, extra.rows[0].id, encuestador.rows[0].id, valor],
+        );
+      }
+    }
+
+    const body = {
+      relevamiento: rel.rows[0].id,
+      comercio: comercio.rows[0].id,
+      producto: producto.rows[0].id,
+      valor: 5000,
+    };
+
+    // The previous price of this producto at Almacen 1 is March's 132; 5000 is a x37.9 variation.
+    const warned = await api("POST", "/api/precios", { token: tokens.encuestador, body });
+    assert.equal(warned.status, 409);
+    assert.equal(warned.body.requiereConfirmacion, true);
+    const alerta = warned.body.alerta;
+    assert.equal(alerta.metodo, "PERCENTIL_VARIACION");
+    assert.equal(alerta.variedad, variedad.rows[0].codigo_variedad);
+    assert.equal(alerta.precioAnterior, 132);
+    assert.ok(Math.abs(alerta.variacion - 5000 / 132) < 1e-9);
+    assert.equal(alerta.n, 25);
+    assert.equal(alerta.percentilInferior, 5);
+    assert.equal(alerta.percentilSuperior, 95);
+    // P5 ~ 1.01 and P95 = 1.10: the minimum tolerance widens the band to [0.9, 1.1].
+    assert.ok(Math.abs(alerta.limiteInferior - 0.9) < 1e-9);
+    assert.ok(Math.abs(alerta.limiteSuperior - 1.1) < 1e-9);
+    assert.ok(Math.abs(alerta.rangoPrecio.min - 0.9 * 132) < 1e-6);
+    assert.ok(Math.abs(alerta.rangoPrecio.max - 1.1 * 132) < 1e-6);
+
+    const confirmed = await api("POST", "/api/precios", {
+      token: tokens.encuestador,
+      body: { ...body, confirmarDesvio: true },
+    });
+    assert.equal(confirmed.status, 201);
+    assert.equal(confirmed.body.alerta.metodo, "PERCENTIL_VARIACION");
+    assert.equal(confirmed.body.alerta.n, 25);
+
+    const flagged = await api("GET", "/api/precios?conAlerta=true", { token: tokens.analista });
+    assert.equal(flagged.body.length, 1);
+    assert.equal(flagged.body[0].id, confirmed.body.id);
+
+    // A usual variation (120 / 132 = -9%) on that price is saved without any alert, and the edit is judged too.
+    const usual = await api("PATCH", `/api/precios/${confirmed.body.id}`, {
+      token: tokens.encuestador,
+      body: { valor: 120 },
+    });
+    assert.equal(usual.status, 200);
+    assert.equal(usual.body.alerta, null);
+
+    const editedFar = await api("PATCH", `/api/precios/${confirmed.body.id}`, {
+      token: tokens.encuestador,
+      body: { valor: 300 },
+    });
+    assert.equal(editedFar.status, 409);
+    assert.equal(editedFar.body.alerta.metodo, "PERCENTIL_VARIACION");
+
+    // A promotional price is not judged.
+    const oferta = await api("PATCH", `/api/precios/${confirmed.body.id}`, {
+      token: tokens.encuestador,
+      body: { valor: 300, oferta: true },
+    });
+    assert.equal(oferta.status, 200);
+    assert.equal(oferta.body.alerta, null);
+  });
+});

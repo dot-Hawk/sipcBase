@@ -1,0 +1,90 @@
+:root {
+  /* Surfaces */
+  --canvas: #f5f7fa;
+  --surface: #ffffff;
+  --fill: #edf0f5; /* tonal fill for quiet controls and inner blocks */
+  --hairline: #e3e7ee;
+
+  /* Ink. Muted ink is 6.3:1 on white, 5.8:1 on canvas. */
+  --ink: #172033;
+  --ink-muted: #556075;
+  --ink-faint: #6b7488;
+  --control-border: #8a93a5; /* 3.3:1 on white */
+
+  /* Brand */
+  --brand: #2070b8;
+  --brand-deep: #14487c;
+  --brand-tint: #e8f1fa;
+  --on-brand-muted: #cfdff0; /* 7.6:1 on brand-deep */
+
+  /* Status */
+  --success: #1e7a4e;
+  --success-tint: #e4f3ea;
+  --attn: #8a5300; /* text on attn-tint 5.4:1 */
+  --attn-mark: #b26a00;
+  --attn-tint: #fff2d2;
+  --danger: #b3261e;
+  --danger-tint: #fce9e7;
+
+  /* Shape */
+  --r-control: 12px;
+  --r-inner: 16px;
+  --r-panel: 20px;
+  --r-sheet: 24px;
+  --r-pill: 999px;
+
+  /* Elevation: a quiet card, and things that float above the page */
+  --shadow-card: 0 1px 2px rgba(23, 32, 51, 0.04), 0 12px 32px rgba(23, 32, 51, 0.06);
+  --shadow-card-hover: 0 1px 2px rgba(23, 32, 51, 0.05), 0 16px 36px rgba(23, 32, 51, 0.1);
+  --shadow-float: 0 10px 28px rgba(23, 32, 51, 0.16), 0 1px 3px rgba(23, 32, 51, 0.1);
+
+  /* Focus halo for fields, and the shared hairline for cards */
+  --ring-focus: 0 0 0 4px rgba(32, 112, 184, 0.2);
+  --border-card: 1px solid rgba(23, 32, 51, 0.06);
+
+  /* Brand surfaces: deep gradient, its soft light, and the dot grid */
+  --brand-gradient: linear-gradient(160deg, #1b5a94 0%, var(--brand-deep) 70%);
+  --brand-light: radial-gradient(120% 80% at 0% 0%, rgba(77, 156, 222, 0.45) 0%, rgba(77, 156, 222, 0) 60%);
+  --brand-dots: radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1.5px);
+
+  /* Primary button */
+  --btn-gradient: linear-gradient(180deg, #2a7cc6 0%, var(--brand) 100%);
+  --shadow-btn: 0 1px 0 rgba(255, 255, 255, 0.2) inset, 0 6px 16px rgba(32, 112, 184, 0.32);
+  --shadow-btn-hover: 0 1px 0 rgba(255, 255, 255, 0.2) inset, 0 10px 22px rgba(32, 112, 184, 0.36);
+
+  /* Glass: translucent white for floating chrome, and its on-brand counterpart */
+  --glass-bg: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-blur: blur(22px) saturate(160%);
+  --glass-on-brand-bg: rgba(255, 255, 255, 0.12);
+  --glass-on-brand-border: rgba(255, 255, 255, 0.22);
+  --glass-on-brand-active: rgba(255, 255, 255, 0.16);
+  --highlight-inset: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+
+  /* Type */
+  --font: 'Plus Jakarta Sans Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --t-13: 0.8125rem;
+  --t-15: 0.9375rem;
+  --t-17: 1.0625rem;
+  --t-21: 1.3125rem;
+  --t-28: 1.75rem;
+  --t-44: 2.75rem;
+
+  /* Layout and touch */
+  --gutter: 16px;
+  --tap: 48px;
+  --field: 56px;
+  --rail: 96px;
+  --tabbar: 72px;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur: 180ms;
+
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+@media (min-width: 900px) {
+  :root {
+    --gutter: 28px;
+  }
+}

@@ -1,0 +1,105 @@
+/* Calculations: run status, facts, summary figures and the sections of the detail page. */
+.calc-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.calc-running {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--ink-muted);
+}
+.calc-error p {
+  margin: 0 0 4px;
+}
+.calc-error code {
+  overflow-wrap: anywhere;
+}
+.calc-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px 20px;
+  margin: 0;
+  padding: 16px 20px;
+  background: var(--surface);
+  border-radius: var(--r-panel);
+  border: var(--border-card);
+  box-shadow: var(--shadow-card);
+}
+.calc-facts dt,
+.calc-figures dt {
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.calc-facts dd,
+.calc-figures dd {
+  margin: 2px 0 0;
+}
+.calc-section {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+.calc-section h2 {
+  margin: 0;
+}
+.calc-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+.calc-figures__item {
+  padding: 16px 18px;
+  background: var(--surface);
+  border-radius: var(--r-panel);
+  border: var(--border-card);
+  box-shadow: var(--shadow-card);
+}
+.calc-figures dd {
+  font-size: var(--t-24, 1.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.calc-export {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid var(--hairline);
+}
+.calc-export legend {
+  padding: 0;
+  font-weight: 600;
+}
+.calc-export__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.calc-advanced {
+  border: var(--border-card);
+  border-radius: var(--r-panel);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  padding: 0 16px;
+}
+.calc-advanced summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  cursor: pointer;
+}
+.calc-advanced__body {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 14px;
+}

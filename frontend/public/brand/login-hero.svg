@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1400" preserveAspectRatio="xMidYMid slice">
+  <!-- Placeholder illustration of the Dirección de Estadística y Censos – Formosa building. Replace with a real photo when available. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f2f52"/>
+      <stop offset="0.55" stop-color="#1d4f80"/>
+      <stop offset="1" stop-color="#3a6f9e"/>
+    </linearGradient>
+    <linearGradient id="facade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e9edf2"/>
+      <stop offset="1" stop-color="#cdd6e0"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a9b6c5"/>
+      <stop offset="1" stop-color="#8e9db0"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6f93b8"/>
+      <stop offset="1" stop-color="#3f6488"/>
+    </linearGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5c6f63"/>
+      <stop offset="1" stop-color="#3d4c44"/>
+    </linearGradient>
+    <pattern id="win" width="56" height="64" patternUnits="userSpaceOnUse">
+      <rect x="8" y="10" width="40" height="44" rx="2" fill="url(#glass)"/>
+      <rect x="8" y="10" width="40" height="8" fill="#9db7d1" opacity="0.5"/>
+    </pattern>
+    <pattern id="winSide" width="44" height="64" patternUnits="userSpaceOnUse">
+      <rect x="8" y="10" width="28" height="44" rx="2" fill="#4b6a8a"/>
+    </pattern>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.4" fill="#ffffff" opacity="0.14"/>
+    </pattern>
+    <path id="star" d="M0 -40 L11 -11 L40 0 L11 11 L0 40 L-11 11 L-40 0 L-11 -11 Z"/>
+  </defs>
+
+  <rect width="1200" height="1400" fill="url(#sky)"/>
+  <rect width="1200" height="760" fill="url(#grid)"/>
+
+  <!-- Statistics motif: soft bar chart and trend line in the sky -->
+  <g opacity="0.16" fill="#ffffff">
+    <rect x="90" y="470" width="34" height="120" rx="4"/>
+    <rect x="140" y="420" width="34" height="170" rx="4"/>
+    <rect x="190" y="450" width="34" height="140" rx="4"/>
+    <rect x="240" y="380" width="34" height="210" rx="4"/>
+  </g>
+  <polyline points="80,330 220,290 360,310 520,230 700,250 860,170 1100,190" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.22"/>
+  <g fill="#ffffff" opacity="0.3">
+    <circle cx="220" cy="290" r="6"/><circle cx="520" cy="230" r="6"/><circle cx="860" cy="170" r="6"/>
+  </g>
+
+  <!-- Ring of stars from the institutional mark -->
+  <g fill="#ffffff" opacity="0.1">
+    <use href="#star" transform="translate(900 120) scale(1.1)"/>
+    <use href="#star" transform="translate(1040 210) scale(0.8)"/>
+    <use href="#star" transform="translate(760 70) scale(0.7)"/>
+    <use href="#star" transform="translate(1110 360) scale(0.9)"/>
+  </g>
+
+  <!-- Background trees -->
+  <g fill="#2f4a3c" opacity="0.85">
+    <ellipse cx="80" cy="830" rx="120" ry="90"/>
+    <ellipse cx="1150" cy="840" rx="130" ry="100"/>
+  </g>
+
+  <!-- Building: side block -->
+  <polygon points="860,520 1010,560 1010,900 860,900" fill="url(#side)"/>
+  <rect x="872" y="580" width="126" height="300" fill="url(#winSide)" opacity="0.9"/>
+
+  <!-- Building: main block -->
+  <rect x="300" y="520" width="560" height="380" fill="url(#facade)"/>
+  <rect x="300" y="500" width="560" height="26" fill="#f4f6f9"/>
+  <rect x="290" y="490" width="580" height="12" fill="#b9c4d1"/>
+  <rect x="328" y="560" width="504" height="256" fill="url(#win)"/>
+
+  <!-- Entrance canopy and columns -->
+  <rect x="470" y="808" width="220" height="14" fill="#8597ab"/>
+  <g fill="#f4f6f9">
+    <rect x="482" y="822" width="14" height="78"/>
+    <rect x="664" y="822" width="14" height="78"/>
+  </g>
+  <rect x="506" y="830" width="148" height="70" fill="#2c4b6b"/>
+  <rect x="578" y="830" width="4" height="70" fill="#8ea9c4"/>
+
+  <!-- Sign band -->
+  <rect x="420" y="530" width="320" height="22" rx="3" fill="#14487c"/>
+  <g fill="#ffffff" opacity="0.85">
+    <rect x="440" y="539" width="180" height="4" rx="2"/>
+    <rect x="630" y="539" width="90" height="4" rx="2"/>
+  </g>
+
+  <!-- Flagpole -->
+  <rect x="236" y="560" width="5" height="340" fill="#d9dfe6"/>
+  <rect x="241" y="566" width="70" height="16" fill="#75aadb"/>
+  <rect x="241" y="582" width="70" height="16" fill="#f4f6f9"/>
+  <rect x="241" y="598" width="70" height="16" fill="#75aadb"/>
+
+  <!-- Ground, sidewalk, foreground trees -->
+  <rect y="900" width="1200" height="500" fill="url(#ground)"/>
+  <rect y="900" width="1200" height="22" fill="#c9d0d7"/>
+  <polygon points="506,922 654,922 760,1400 400,1400" fill="#aeb8c2" opacity="0.55"/>
+  <g fill="#3a5a48">
+    <ellipse cx="180" cy="880" rx="70" ry="80"/>
+    <ellipse cx="1060" cy="890" rx="80" ry="86"/>
+  </g>
+  <g fill="#4a3a2c">
+    <rect x="175" y="930" width="10" height="40"/>
+    <rect x="1055" y="944" width="10" height="40"/>
+  </g>
+</svg>

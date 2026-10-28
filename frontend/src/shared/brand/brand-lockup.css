@@ -1,0 +1,7 @@
+/* Official logo artwork (public/brand/logo-full*.png). Width is set where it is used. */
+.lockup {
+  display: block;
+  flex: none;
+  width: 200px;
+  height: auto;
+}
